@@ -5,10 +5,10 @@ using StatsPlots
 using Statistics
 
 ranks = Dict("2S"=>2, "3S"=>3, "4S"=>4, "5S"=>5, "6S"=>6, "7S"=>7, "8S"=>8, "9S"=>9, "10S"=>10, "JS"=>11, "QS"=>12, "KS"=>13, "AS"=>14,        
-            "2H"=>2, "3H"=>3, "4H"=>4, "5H"=>5, "6H"=>6, "7H"=>7, "8H"=>8, "9H"=>9, "10H"=>10, "JH"=>11, "QH"=>12, "KH"=>13, "AH"=>14,
-            "2C"=>2, "3C"=>3, "4C"=>4, "5C"=>5, "6C"=>6, "7C"=>7, "8C"=>8, "9C"=>9, "10C"=>10, "JC"=>11,  "QC"=>12, "KC"=>13, "AC"=>14,
-            "2D"=>2, "3D"=>3, "4D"=>4, "5D"=>5, "6D"=>6, "7D"=>7, "8D"=>8, "9D"=>9, "10D"=>10, "JD"=>11,"QD"=>12, "KD"=>13, "AD"=>14,
-            "JO"=>15)
+             "2H"=>2, "3H"=>3, "4H"=>4, "5H"=>5, "6H"=>6, "7H"=>7, "8H"=>8, "9H"=>9, "10H"=>10, "JH"=>11, "QH"=>12, "KH"=>13, "AH"=>14,
+             "2C"=>2, "3C"=>3, "4C"=>4, "5C"=>5, "6C"=>6, "7C"=>7, "8C"=>8, "9C"=>9, "10C"=>10, "JC"=>11, "QC"=>12, "KC"=>13, "AC"=>14,
+             "2D"=>2, "3D"=>3, "4D"=>4, "5D"=>5, "6D"=>6, "7D"=>7, "8D"=>8, "9D"=>9, "10D"=>10, "JD"=>11, "QD"=>12, "KD"=>13, "AD"=>14,
+             "JO"=>15)
 
 # Function to shuffle the deck in a thread-safe way
 function shuffle_deck(deck)
@@ -18,7 +18,7 @@ end
 
 function play_war(deck, num_games)
     decks = Vector{Vector{String}}(undef, num_games)
-    results =  Vector{Vector{Float64}}(undef, num_games)
+    results =  Vector{Vector{Float64}}(undef, 2*num_games)
     @threads for i in 1:num_games        
         decks[i] = shuffle_deck(deck)
 
@@ -26,8 +26,8 @@ function play_war(deck, num_games)
         hand1 = decks[i][1:2:end]
         hand2 = decks[i][2:2:end]
 
-        start_hand1 = sum([ranks[card] for card in hand1])
-        start_hand2 = sum([ranks[card] for card in hand2])
+        start_hand1 = [ranks[card] for card in hand1]
+        start_hand2 = [ranks[card] for card in hand2]
         n_turns = 3600
 
         for j in 1:3600
@@ -91,11 +91,18 @@ function play_war(deck, num_games)
                 break
             end
         end
-        results[i] = collect([start_hand1/max_strength, 
-                              start_hand2/max_strength, 
-                              n_turns/3600, 
-                              length(hand1)/54, 
-                              length(hand2)/54])
+
+        if length(hand1) == 0
+            results[i] = push!(start_hand1, -1)
+            results[num_games + i] = push!(start_hand2, 1)
+        elseif length(hand1) == length(decks[i])
+            results[i] = push!(start_hand1, 1)
+            results[num_games + i] = push!(start_hand2, -1)
+        else
+            results[i] = push!(start_hand1, 0)
+            results[num_games + i] = push!(start_hand2, 0)
+        end
+            
     end
 
     return results
@@ -108,16 +115,4 @@ deck = collect(["2S", "3S", "4S", "5S", "6S", "7S", "8S", "9S", "10S", "JS", "QS
                 "2D", "3D", "4D", "5D", "6D", "7D", "8D", "9D", "10D", "JD", "QD", "KD", "AD",
                 "JO", "JO"])
 
-results = play_war(deck, 100000)
-
-transposed_data = [getindex.(results, i) for i in 1:5]
-
-# Create the whisker plot
-violin(transposed_data, 
-        title="War Statistics", 
-        ylabel="Values", 
-        xticks=(1:5, ["Hand 1 Strength", "Hand 2 Strength", 
-                      "Turns to Finish", 
-                      "Hand 1 Wins", "Hand 2 Wins"]),
-        legend=false)
-savefig("war_ouput.png")
+results = play_war(deck, 1000)
